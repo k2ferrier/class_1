@@ -1,0 +1,162 @@
+---
+title: "Exercises 1"
+author: "Kendra Ferrier"
+date: "11/30/2018"
+output: html_document
+---
+  
+```{r setup, include=FALSE}
+library(tidyverse)
+library(pbda)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Overview
+
+Here is a [link](https://raw.githubusercontent.com/IDPT7810/practical-data-analysis/master/vignettes/problem-set-1.Rmd) to the text of these exercises.
+
+# Question 1
+
+Tidy the `mtcars` data set. Note that car names are rownames in the built-in data, so they need to be moved to their own column prior to tibble conversion.
+
+The tidied data should look like:
+  
+
+```
+# A tibble: 352 x 3
+name   var value
+<chr> <chr> <dbl>
+  1         Mazda RX4   mpg  21.0
+2     Mazda RX4 Wag   mpg  21.0
+3        Datsun 710   mpg  22.8
+4    Hornet 4 Drive   mpg  21.4
+5 Hornet Sportabout   mpg  18.7
+6           Valiant   mpg  18.1
+7        Duster 360   mpg  14.3
+8         Merc 240D   mpg  24.4
+9          Merc 230   mpg  22.8
+10          Merc 280   mpg  19.2
+# ... with 342 more rows
+```
+
+```{r}
+# Create wide format tidied data set of mtcars
+mtcars_wide <- mtcars %>%
+  rownames_to_column() %>%
+  as_tibble()
+
+mtcars_wide
+```
+
+## Strategy
+
+Use the tidyverse function as_tibble to tidy the mtcars data frame.
+
+## Interpretation
+
+The mtcars data frame is changed from a  data frame to a tbl_df.
+
+
+# Question 2
+
+
+For each car in the tidy `mtcars` data set, calculate the mean (`mean()`) and variance (`var()`) for each variable. Try using `summarize()` and `summarize_at()` and `summarize_all()`.
+
+```{r}
+# Create long format tidied mtcars data set.
+mtcars_long <- mtcars_wide %>%
+  gather(key, value, -rowname)
+
+# Create summary table.
+mtcars_long %>%
+  group_by(key) %>%
+  summarize(mean(value), var(value))
+
+```
+
+## Strategy
+
+Turn the tidied mtcars data frame into a long form data frame. 
+
+## Interpretation
+
+Long data frames are better for summary statistics.
+
+# Question 3
+
+Plot `mpg` vs `cyl` for the `mtcars` data set. Which format should you use? The original data set, or the tidied one? Why? 
+
+```{r} 
+# Create wide format tidied data set of mtcars
+mtcars_wide <- mtcars %>%
+  rownames_to_column() %>%
+  as_tibble()
+
+# Create plot of mpg vs cyl 
+mtcars_wide %>%
+  ggplot(aes(x = cyl, y = mpg)) +
+  geom_point() 
+```
+
+## Strategy
+
+Use ggplot2 and the tidied wide form of the mtcars data frame.The wide format of a data frame is better for plotting. The tidied version needs to be used versus the original dataset because it puts the data into a standardized structure that is easier to analyze.
+
+## Interpretation
+
+The greater the number of cylendars the lower the mpg.
+
+
+# Question 4
+  
+Using the provided `qpcr` data, plot the changes in gene expression over time. Use **colors** to represent genotypes and **facets** for the different genes. If thats too easy, add error bars (`geom_errorbar()`) to the plot and connect each point with a line (`geom_line()`).
+
+```{r}
+# Tidy the qpcr_data and qpcr_names
+qpcr_data_tidy <- gather(qpcr_data, col, value, -row)
+qpcr_names_tidy <- gather(qpcr_names, col, value, -row) %>%
+  separate(value, into = c('genotype', 'time', 'gene', 'rt', 'rep'), sep = "_")
+
+# Join the tidied qpcr_data and qpcr_names
+qpcr_tidy <- left_join(qpcr_names_tidy, qpcr_data_tidy)  %>%
+  filter(rt == "+") %>%
+  select(-row, -col, -rt)
+
+# Manipulate the tidied qpcr data to analyze the mean and standard deviation of the interferon response over time.  
+qpcr_plot_dat <- qpcr_tidy %>% 
+  spread(gene, value) %>%
+  mutate(IFN_norm = IFN - ACTIN) %>%
+  select(-ACTIN, -IFN) %>%
+  group_by(genotype, time) %>%
+  summarize(
+    IFN_mean = mean(IFN_norm),
+    IFN_sd = sd(IFN_norm) 
+  )
+
+# Make time a continuous variable for plotting interferon response over time. 
+qpcr_plot_dat2 <- qpcr_plot_dat %>%
+  mutate(time = as.numeric(time))
+
+# Plot the data for interferon response over time.
+ggplot(qpcr_plot_dat2, aes(x= time, y = IFN_mean, color = genotype)) +
+  geom_point() +
+  scale_color_brewer(palette = "Dark2") +
+  geom_errorbar(
+    aes(ymax = IFN_mean + IFN_sd,
+        ymin = IFN_mean - IFN_sd)) + 
+  labs(
+    title = "Normalized IFN expression over time",
+    x = "Time",
+    y = "Normalized IFN exp") +
+  geom_smooth(method = 'lm')
+``` 
+
+## Strategy 
+
+Using the tidyverse package, tidy the qpcr data, then analyze.
+
+## Interpretation
+ 
+The interferon expression increases over time. 
+
+
